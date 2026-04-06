@@ -1,25 +1,7 @@
 import { motion } from "framer-motion";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { CalendarIcon, Clock, User, Mail, Phone, MessageSquare, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import AnimatedSection from "@/components/AnimatedSection";
-
-const bookingSchema = z.object({
-  name: z.string().min(2, "Name is required"),
-  email: z.string().email("Invalid email address"),
-  phone: z.string().optional(),
-  date: z.string().min(1, "Date is required"),
-  time: z.string().min(1, "Time is required"),
-  type: z.enum(["call", "meeting"]),
-  notes: z.string().optional(),
-});
 
 const timeSlots = [
   "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -27,28 +9,52 @@ const timeSlots = [
 ];
 
 export default function Book() {
-  const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const form = useForm<z.infer<typeof bookingSchema>>({
-    resolver: zodResolver(bookingSchema),
-    defaultValues: { name: "", email: "", phone: "", date: "", time: "", type: "call", notes: "" },
-  });
-
-  const onSubmit = (values: z.infer<typeof bookingSchema>) => {
-    setIsSubmitting(true);
-    setSubmitted(true);
-    form.reset();
-    toast({ title: "Booking request sent", description: "We'll follow up shortly.", variant: "default" });
-    setIsSubmitting(false);
-  };
+  const [sessionType, setSessionType] = useState("call");
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
   const perks = [
     { icon: User, title: "Direct Founder Access", desc: "You speak directly with the founders, not a salesperson." },
     { icon: MessageSquare, title: "Actionable Strategy", desc: "Walk away with concrete recommendations, not vague promises." },
     { icon: CheckCircle2, title: "Zero Obligation", desc: "A discovery call with no strings attached. Just value." },
   ];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitError(false);
+
+    try {
+      const formData = new FormData(e.target);
+      
+      const response = await fetch("https://formspree.io/f/mpqokabp", {
+        method: "POST",
+        body: formData,
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (response.ok) {
+        setSubmitted(true);
+        setSubmitSuccess(true);
+        e.target.reset();
+        setSessionType("call");
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => setSubmitSuccess(false), 3000);
+      } else {
+        setSubmitError(true);
+      }
+    } catch (error) {
+      console.error("Form submission error:", error);
+      setSubmitError(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="w-full min-h-screen pb-28 pt-10 relative overflow-hidden">
@@ -206,154 +212,181 @@ export default function Book() {
                   <h3 className="text-xl font-black mb-1 tracking-wide">Schedule Your Session</h3>
                   <p className="text-white/30 text-xs font-mono mb-8">Fill in your details and we'll confirm shortly.</p>
 
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <FormField control={form.control} name="name" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-white/40 text-xs font-mono uppercase tracking-wider">Full Name *</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <User className="absolute left-3 top-3 text-[#ff1a1a]/60" size={14} />
-                                <Input placeholder="Your name" className="pl-9 text-sm bg-white/[0.03] border-white/10 focus:border-[#ff1a1a]/40 rounded-xl" {...field} />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name="email" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-white/40 text-xs font-mono uppercase tracking-wider">Email *</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Mail className="absolute left-3 top-3 text-[#ff1a1a]/60" size={14} />
-                                <Input type="email" placeholder="you@company.com" className="pl-9 text-sm bg-white/[0.03] border-white/10 focus:border-[#ff1a1a]/40 rounded-xl" {...field} />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
+                  <form 
+                    onSubmit={handleSubmit}
+                    className="space-y-5"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <label className="text-white/40 text-xs font-mono uppercase tracking-wider block mb-2">Full Name *</label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-3 text-[#ff1a1a]/60" size={14} />
+                          <input 
+                            type="text" 
+                            name="name" 
+                            placeholder="Your name" 
+                            required
+                            className="w-full pl-9 pr-4 py-2 text-sm bg-white/[0.03] border border-white/10 focus:border-[#ff1a1a]/40 rounded-xl focus:outline-none transition text-white placeholder-white/30"
+                          />
+                        </div>
                       </div>
-
-                      <FormField control={form.control} name="phone" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-white/40 text-xs font-mono uppercase tracking-wider">Phone (Optional)</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Phone className="absolute left-3 top-3 text-[#ff1a1a]/60" size={14} />
-                              <Input placeholder="+91 98765 43210" className="pl-9 text-sm bg-white/[0.03] border-white/10 focus:border-[#ff1a1a]/40 rounded-xl" {...field} />
-                            </div>
-                          </FormControl>
-                        </FormItem>
-                      )} />
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <FormField control={form.control} name="date" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-white/40 text-xs font-mono uppercase tracking-wider">Date *</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <CalendarIcon className="absolute left-3 top-3 text-[#ff1a1a]/60" size={14} />
-                                <Input type="date" className="pl-9 text-sm bg-white/[0.03] border-white/10 focus:border-[#ff1a1a]/40 rounded-xl" {...field} />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name="time" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-white/40 text-xs font-mono uppercase tracking-wider">Time *</FormLabel>
-                            <FormControl>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <SelectTrigger className="text-sm bg-white/[0.03] border-white/10 rounded-xl">
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="text-[#ff1a1a]/60" size={14} />
-                                    <SelectValue placeholder="Pick a slot" />
-                                  </div>
-                                </SelectTrigger>
-                                <SelectContent className="bg-[#111] border-white/10">
-                                  {timeSlots.map(slot => (
-                                    <SelectItem key={slot} value={slot} className="text-white/70">{slot}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
+                      <div>
+                        <label className="text-white/40 text-xs font-mono uppercase tracking-wider block mb-2">Email *</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-3 text-[#ff1a1a]/60" size={14} />
+                          <input 
+                            type="email" 
+                            name="email" 
+                            placeholder="you@company.com" 
+                            required
+                            className="w-full pl-9 pr-4 py-2 text-sm bg-white/[0.03] border border-white/10 focus:border-[#ff1a1a]/40 rounded-xl focus:outline-none transition text-white placeholder-white/30"
+                          />
+                        </div>
                       </div>
+                    </div>
 
-                      <FormField control={form.control} name="type" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-white/40 text-xs font-mono uppercase tracking-wider">Session Type *</FormLabel>
-                          <div className="grid grid-cols-2 gap-3">
-                            {[["call", "Phone Call"], ["meeting", "Video Meeting"]].map(([val, label]) => (
-                              <motion.button
-                                key={val}
-                                type="button"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => field.onChange(val)}
-                                className="py-3 rounded-xl text-sm font-mono transition-all"
-                                style={field.value === val ? {
-                                  background: "linear-gradient(135deg, rgba(255,26,26,0.3), rgba(139,0,0,0.2))",
-                                  border: "1px solid rgba(255,26,26,0.5)",
-                                  color: "#fff",
-                                } : {
-                                  background: "rgba(255,255,255,0.02)",
-                                  border: "1px solid rgba(255,255,255,0.08)",
-                                  color: "rgba(255,255,255,0.4)",
-                                }}
-                              >
-                                {label}
-                              </motion.button>
+                    <div>
+                      <label className="text-white/40 text-xs font-mono uppercase tracking-wider block mb-2">Phone (Optional)</label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 text-[#ff1a1a]/60" size={14} />
+                        <input 
+                          type="tel" 
+                          name="phone" 
+                          placeholder="+91 98765 43210" 
+                          className="w-full pl-9 pr-4 py-2 text-sm bg-white/[0.03] border border-white/10 focus:border-[#ff1a1a]/40 rounded-xl focus:outline-none transition text-white placeholder-white/30"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <label className="text-white/40 text-xs font-mono uppercase tracking-wider block mb-2">Date *</label>
+                        <div className="relative">
+                          <CalendarIcon className="absolute left-3 top-3 text-[#ff1a1a]/60" size={14} />
+                          <input 
+                            type="date" 
+                            name="date" 
+                            required
+                            className="w-full pl-9 pr-4 py-2 text-sm bg-white/[0.03] border border-white/10 focus:border-[#ff1a1a]/40 rounded-xl focus:outline-none transition text-white"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-white/40 text-xs font-mono uppercase tracking-wider block mb-2">Time *</label>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-3 text-[#ff1a1a]/60" size={14} />
+                          <select 
+                            name="time" 
+                            required
+                            className="w-full pl-9 pr-4 py-2 text-sm bg-white/[0.03] border border-white/10 focus:border-[#ff1a1a]/40 rounded-xl focus:outline-none transition text-white appearance-none"
+                          >
+                            <option value="" disabled>Pick a slot</option>
+                            {timeSlots.map(slot => (
+                              <option key={slot} value={slot}>{slot}</option>
                             ))}
-                          </div>
-                        </FormItem>
-                      )} />
+                          </select>
+                        </div>
+                      </div>
+                    </div>
 
-                      <FormField control={form.control} name="notes" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-white/40 text-xs font-mono uppercase tracking-wider">Project Details (Optional)</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Tell us about your project, goals, and budget..."
-                              className="min-h-[90px] text-sm bg-white/[0.03] border-white/10 focus:border-[#ff1a1a]/40 rounded-xl resize-none"
-                              {...field}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )} />
+                    <div>
+                      <label className="text-white/40 text-xs font-mono uppercase tracking-wider block mb-3">Session Type *</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[["call", "Phone Call"], ["meeting", "Video Meeting"]].map(([val, label]) => (
+                          <motion.button
+                            key={val}
+                            type="button"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setSessionType(val)}
+                            className="py-3 rounded-xl text-sm font-mono transition-all"
+                            style={sessionType === val ? {
+                              background: "linear-gradient(135deg, rgba(255,26,26,0.3), rgba(139,0,0,0.2))",
+                              border: "1px solid rgba(255,26,26,0.5)",
+                              color: "#fff",
+                            } : {
+                              background: "rgba(255,255,255,0.02)",
+                              border: "1px solid rgba(255,255,255,0.08)",
+                              color: "rgba(255,255,255,0.4)",
+                            }}
+                          >
+                            {label}
+                          </motion.button>
+                        ))}
+                      </div>
+                      <input type="hidden" name="type" value={sessionType} />
+                    </div>
 
-                      <motion.button
-                        type="submit"
-                        disabled={isSubmitting}
-                        whileHover={{ scale: 1.02, boxShadow: "0 0 40px rgba(255,26,26,0.5)" }}
-                        whileTap={{ scale: 0.98 }}
-                        className="relative w-full overflow-hidden py-4 rounded-xl font-black text-base text-white"
+                    <div>
+                      <label className="text-white/40 text-xs font-mono uppercase tracking-wider block mb-2">Project Details (Optional)</label>
+                      <textarea
+                        name="message"
+                        placeholder="Tell us about your project, goals, and budget..."
+                        rows={5}
+                        className="w-full px-4 py-3 text-sm bg-white/[0.03] border border-white/10 focus:border-[#ff1a1a]/40 rounded-xl focus:outline-none transition text-white placeholder-white/30 resize-none"
+                      />
+                    </div>
+
+                    {submitSuccess && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="p-3 rounded-xl text-sm font-mono text-center"
                         style={{
-                          background: "linear-gradient(135deg, #ff1a1a 0%, #8b0000 100%)",
-                          boxShadow: "0 0 24px rgba(255,26,26,0.3), inset 0 1px 0 rgba(255,255,255,0.15)",
+                          background: "linear-gradient(135deg, rgba(34,197,94,0.1), rgba(22,163,74,0.05))",
+                          border: "1px solid rgba(34,197,94,0.3)",
+                          color: "#22c55e"
                         }}
                       >
-                        <motion.span
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                          animate={{ x: ["-100%", "200%"] }}
-                          transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 2 }}
-                        />
-                        {isSubmitting ? (
-                          <span className="flex items-center justify-center gap-2">
-                            <motion.div
-                              className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                              animate={{ rotate: 360 }}
-                              transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-                            />
-                            Confirming...
-                          </span>
-                        ) : "Confirm Session"}
-                      </motion.button>
-                    </form>
-                  </Form>
+                        ✓ Your request has been submitted successfully!
+                      </motion.div>
+                    )}
+
+                    {submitError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="p-3 rounded-xl text-sm font-mono text-center"
+                        style={{
+                          background: "linear-gradient(135deg, rgba(239,68,68,0.1), rgba(220,38,38,0.05))",
+                          border: "1px solid rgba(239,68,68,0.3)",
+                          color: "#ef4444"
+                        }}
+                      >
+                        ✗ Something went wrong. Please try again.
+                      </motion.div>
+                    )}
+
+                    <motion.button
+                      type="submit"
+                      disabled={isSubmitting}
+                      whileHover={{ scale: 1.02, boxShadow: "0 0 40px rgba(255,26,26,0.5)" }}
+                      whileTap={{ scale: 0.98 }}
+                      className="relative w-full overflow-hidden py-4 rounded-xl font-black text-base text-white disabled:opacity-70"
+                      style={{
+                        background: "linear-gradient(135deg, #ff1a1a 0%, #8b0000 100%)",
+                        boxShadow: "0 0 24px rgba(255,26,26,0.3), inset 0 1px 0 rgba(255,255,255,0.15)",
+                      }}
+                    >
+                      <motion.span
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                        animate={{ x: ["-100%", "200%"] }}
+                        transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 2 }}
+                      />
+                      {isSubmitting ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <motion.div
+                            className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+                          />
+                          Sending...
+                        </span>
+                      ) : "Confirm Session"}
+                    </motion.button>
+                  </form>
                 </div>
               </div>
             )}
